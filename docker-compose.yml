@@ -1,0 +1,32 @@
+services:
+  python-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - USER_NAME=${USER_NAME}
+        - USER_PASSWORD=${USER_PASSWORD}
+        - ROOT_PASSWORD=${ROOT_PASSWORD}
+    image: python-gpu:latest
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - USER_NAME=${USER_NAME:-researcher}
+      - ALLOW_ROOT_LOGIN=${ALLOW_ROOT_LOGIN:-no}
+      - ALLOW_PASSWORD_AUTH=${ALLOW_PASSWORD_AUTH:-no}
+    ports:
+      - "${SSH_PORT}:22"  # SSH port mapping (host:container)
+    volumes:
+      - ./workspace:/home/${USER_NAME}/workspace
+      - ./ssh-keys:/etc/ssh/keys
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    stdin_open: true
+    tty: true
+    command: /usr/local/bin/start-ssh.sh
+
