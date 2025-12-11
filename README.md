@@ -22,11 +22,12 @@ This platform creates an isolated, reproducible research environment that can be
 - **📁 Shared Workspace**: Persistent workspace directory shared between host and container
 
 ### Security Features
-- **SSH Key Authentication**: Automatic SSH key generation during build
+- **SSH Key Authentication**: Automatic SSH key generation on first container start
 - **Password Authentication Disabled by Default**: Enhanced security with key-only access (configurable)
 - **Root Login Disabled by Default**: Prevents unauthorized root access (configurable)
 - **Isolated Environment**: Containerized environment for safe experimentation
 - **Configurable Security Settings**: Control root login and password authentication via environment variables
+- **Secure Key Distribution**: SSH keys packaged in zip files for easy and secure download
 
 ### Developer Experience
 - **Easy Setup**: One-command deployment with Docker Compose
@@ -111,55 +112,36 @@ docker compose up -d --build
 
 #### Using Auto-Generated SSH Key
 
-The platform automatically generates an SSH key during build. The key is automatically copied to the `ssh-keys/` directory when the container starts.
+The platform automatically generates an SSH key pair when the container starts (if it doesn't already exist). When a new key is generated, it is automatically packaged into a zip file and placed in the `ssh-keys-output/` directory (in the project root) for easy download.
 
-**Connect using the auto-generated key:**
+**Download the SSH key:**
+
+1. Check the ssh-keys-output directory for the zip file:
 
 ```bash
-ssh -i ssh-keys/docker-key.pem -p 22 researcher@localhost
+ls -lh ssh-keys-output/ssh-keys-*.zip
+```
+
+2. Extract the zip file:
+
+```bash
+unzip ssh-keys-output/ssh-keys-*.zip -d ~/.ssh/
+chmod 600 ~/.ssh/docker-key.pem
+```
+
+3. Connect using the key:
+
+```bash
+ssh -i ~/.ssh/docker-key.pem -p 22 researcher@localhost
 ```
 
 Or if you've customized the SSH port in `.env`:
 
 ```bash
-ssh -i ssh-keys/docker-key.pem -p ${SSH_PORT} researcher@localhost
+ssh -i ~/.ssh/docker-key.pem -p ${SSH_PORT} researcher@localhost
 ```
 
-**Note**: If the key is not in `ssh-keys/`, you can extract it manually:
-
-```bash
-# Extract the generated SSH key from container
-./extract-ssh-key.sh
-
-# Then connect
-ssh -i ssh-keys/docker-key.pem -p 22 researcher@localhost
-```
-
-#### Using Your Own SSH Key
-
-1. Place your `.pem` SSH key file in the `ssh-keys/` directory:
-
-```bash
-cp your-key.pem ssh-keys/
-```
-
-2. Restart the container:
-
-```bash
-docker compose restart python-gpu
-```
-
-3. Connect using your key:
-
-```bash
-ssh -i ssh-keys/your-key.pem -p 22 researcher@localhost
-```
-
-Or with custom port:
-
-```bash
-ssh -i ssh-keys/your-key.pem -p ${SSH_PORT} researcher@localhost
-```
+**Note**: The SSH key is stored only inside the Docker container. If you need to access the container again after it's been recreated, you'll need to download the zip file from the `ssh-keys-output/` directory. The key persists across container restarts but not across container recreation.
 
 ## 📖 Detailed Usage
 
@@ -290,10 +272,8 @@ researcher/
 ├── .env                    # Environment configuration (not in git)
 ├── .gitignore             # Git ignore rules
 ├── README.md              # This file
-├── extract-ssh-key.sh    # Script to extract SSH keys
-├── ssh-keys/              # SSH key directory (keys not in git)
-│   └── README.txt        # Instructions for SSH keys
-└── workspace/             # Shared workspace directory
+├── workspace/             # Shared workspace directory
+└── ssh-keys-output/       # SSH key zip files directory (auto-created)
 ```
 
 ## 🛠️ Troubleshooting
@@ -343,8 +323,8 @@ docker compose exec python-gpu cat /home/researcher/.ssh/authorized_keys
 # Fix workspace permissions
 sudo chown -R $USER:$USER workspace/
 
-# Fix SSH key permissions
-chmod 600 ssh-keys/*.pem
+# Fix SSH key permissions after extraction
+chmod 600 ~/.ssh/docker-key.pem
 ```
 
 ## 🤝 Contributing
